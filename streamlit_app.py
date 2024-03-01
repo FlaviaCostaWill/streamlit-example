@@ -2,39 +2,69 @@ import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
+from scipy.stats import norm, zscore
 
-"""
-# Welcome to Streamlit!
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:.
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+st.title('Calculadora amostral')
 
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+tab1, tab2 = st.tabs(["🧪 Teste AB", "🔎 Amostra Representativa"])
 
-num_points = st.slider("Number of points in spiral", 1, 10000, 1100)
-num_turns = st.slider("Number of turns in spiral", 1, 300, 31)
+tab1.subheader("Calculadora para Testes AB")
+periodo = tab1.number_input('### Qual o período do teste em dias?', value=15, min_value= 7, label_visibility="visible")
 
-indices = np.linspace(0, 1, num_points)
-theta = 2 * np.pi * num_turns * indices
-radius = indices
+direcao = tab1.text_input('### O teste tem por objetivo um aumento ou queda do indicador? (A / Q)', value='A')
 
-x = radius * np.cos(theta)
-y = radius * np.sin(theta)
+tab1.write(f'### Insira algumas estatísticas sobre o indicador que deseja medir (em um período de {periodo} dias):')
+tab1.write(f'##### Obs.: Considere um período recente mas que não esteja ocorrendo outros testes ou fatores importantes')
 
-df = pd.DataFrame({
-    "x": x,
-    "y": y,
-    "idx": indices,
-    "rand": np.random.randn(num_points),
-})
 
-st.altair_chart(alt.Chart(df, height=700, width=700)
-    .mark_point(filled=True)
-    .encode(
-        x=alt.X("x", axis=None),
-        y=alt.Y("y", axis=None),
-        color=alt.Color("idx", legend=None, scale=alt.Scale()),
-        size=alt.Size("rand", legend=None, scale=alt.Scale(range=[1, 150])),
-    ))
+
+minimo = tab1.number_input('Valor mínimo', 0.3)
+media = tab1.number_input('Valor médio', 0.40)
+maximo = tab1.number_input('Valor máximo', 0.60)
+
+iqr = maximo - minimo
+media_aparada = ((periodo * media) - minimo - maximo)/(periodo - 2)
+
+var_s = abs((maximo / media_aparada) -1)
+var_i = abs((minimo / media_aparada) -1)
+var = (var_s + var_i )/2
+
+tab1.write(f'##### A média sem influência dos valores mínimo e máximo é: {media_aparada}')
+
+
+#incremento_bau = ((float(maximo) * 1.2) - float(media)) #depois melhorar esse valor para ter mais inteligência
+
+
+if direcao == 'A':
+    #ls = round(media + incremento_bau, 2)
+    ls = media_aparada * (1 + var)
+else:
+    #ls = round(media - incremento_bau, 2)
+    ls = media_aparada * (1 - var)
+
+concorda = tab1.text_input(f'##### O indicador será fora do esperado se atingir um valor de {str(ls)}. Deseja manter esse valor de comparação? (S/N)')
+
+
+if concorda == 'S':
+    valor2 = ls
+else:
+    valor2 = tab1.number_input('Qual valor você espera atingir no teste (que fará você pensar "😯 Uau, este teste funcionou"?')
+
+power = tab1.number_input('Insira o poder do teste', 0.95)
+sig = tab1.number_input('Insira a significância', 0.05)
+
+def sample_power_probtest(p1, p2, power=power, sig=sig):
+    z = norm.isf([sig/2]) #two-sided t test
+    zp = -1 * norm.isf([power]) 
+    d = (p1-p2)
+    s =2*((p1+p2) /2)*(1-((p1+p2) /2))
+    n = s * ((zp + z)**2) / (d**2)
+    return int(round(n[0]))
+
+valor_amostras = sample_power_probtest(media, valor2)
+tab1.write(f'### O valor da amostra é: {valor_amostras} para cada público A e B')
+
+
+tab2.subheader("Calculadora para amostra representativa")
+tab2.write('👷🏽‍♀️ Estamos trabalhando nisso')
